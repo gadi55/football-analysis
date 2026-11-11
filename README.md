@@ -1,74 +1,30 @@
-# Football Match Analysis
+# Football Analysis — Cloud Demo
 
-End-to-end computer vision pipeline for analysing football match footage. Detects and tracks players, estimates ball possession, measures speed and distance covered, and produces a Streamlit web app for interactive exploration.
+This fork provides a **lightweight Streamlit cloud entry point** so that users can upload short arbitrary football MP4 clips without manually supplying missing `models/best.pt`. The original full pipeline remains in `main.py` and `football_analysis/` for local/advanced use, but is **not** the pipeline executed by the hosted Streamlit UI.
 
-## Demo
+## Deploy to Streamlit Community Cloud
 
-| Annotated video | Team heatmaps |
-|---|---|
-| Player IDs, team colours, ball possession %, speed/distance overlays | Gaussian KDE heatmaps per team on a pitch outline |
+1. Open https://share.streamlit.io/deploy?repository=gadi55%2Ffootball-analysis&branch=main&mainModule=app.py
+2. If prompted, sign in with GitHub and select repository `gadi55/football-analysis`, branch `main`, file `app.py`.
+3. Deploy; allow a few minutes for the first installation and automatic YOLO weight download.
+4. Upload a short MP4 (ideally 10–20 seconds, maximum 60 seconds); click **Analyze possession**.
 
-## Features
+## Hosted functionality
 
-- **Object detection** — YOLOv8 fine-tuned on football footage (players, goalkeepers, referees, ball)
-- **Multi-object tracking** — ByteTrack for stable player IDs across frames
-- **Team assignment** — K-means clustering on jersey colours
-- **Camera movement compensation** — Lucas-Kanade optical flow on pitch sideline features
-- **Real-world positioning** — homography / perspective transform (pixel → metres)
-- **Speed & distance** — derived from real-world positions at 24 fps, displayed in km/h
-- **Ball possession** — per-frame nearest-player assignment, shown as running %
-- **Heatmaps** — Gaussian KDE of each team's positions on a pitch outline
-- **Stats export** — CSV with per-player avg speed, max speed, distance, possession %
-- **Streamlit app** — upload a clip, download annotated video, view heatmaps and stats table
+- Automatic `yolo11n.pt` download on first inference (COCO person/sports-ball classes)
+- Player bounding boxes, ball location, two approximate jersey-colour clusters
+- Approximate possession and possession-change timestamps
+- CSV timeline, events, annotated H.264 MP4 (ffmpeg)
+- Optional custom trusted football-trained YOLO weights upload with configurable class IDs
 
-## Architecture
+## Accuracy and limits
 
-```
-main.py                   ← pipeline entry point
-app.py                    ← Streamlit web UI
-football_analysis/
-  trackers/               ← YOLO detection + ByteTrack
-  team_assigner/          ← K-means jersey clustering
-  camera_movement_estimator/  ← Lucas-Kanade optical flow
-  view_transformer/       ← perspective transform
-  speed_distance_estimator/   ← km/h from real-world coords
-  player_ball_assigner/   ← ball → nearest player
-  heatmap_generator/      ← Gaussian KDE heatmaps
-  utils/                  ← video I/O, bbox helpers
-tests/                    ← smoke tests
-```
+**Not verified on semi-professional matches.** This is a basic proof of concept. Default COCO sports-ball detection can miss tiny footballs; team colours can confuse referees, substitutes and spectators. Nearest-player possession is a heuristic, not a reliable ground-truth turnover detector. Team A/B labels are arbitrary. No player-ID tracking, speed, distance, or advanced pitch heatmaps are promised by the hosted app; those belong to the original advanced pipeline and require additional configuration and model weights.
 
-## Quick start
+## Advanced original pipeline
 
-```bash
-# 1. Install dependencies
-pip install -r requirements.txt
+The original `main.py` still expects `models/best.pt` and its dependencies. It is **not** configured as the default hosted entry point. This fork deliberately prioritises a first-launch cloud demo.
 
-# 2. Place your model and video
-#    models/best.pt          ← YOLOv8 weights
-#    input_videos/clip.mp4   ← match footage
+## Licenses
 
-# 3. Run the pipeline
-python main.py
-
-# 4. Or launch the web app
-streamlit run app.py
-```
-
-Outputs are written to `output_videos/` (annotated AVI, heatmap PNGs, match_stats.csv).
-
-## Memory-efficient design
-
-Processing a 750-frame 1080p clip on a MacBook Air (8 GB unified memory) required careful memory management:
-
-- **Streaming annotation**: frames are never buffered as a list during drawing — `cv2.VideoCapture` reads one frame at a time, `cv2.VideoWriter` writes immediately
-- **Lazy frame loading**: when tracking/camera stubs are cached, only the first frame is loaded into RAM; all subsequent steps stream from disk
-- **Explicit GC**: bulk frame arrays are `del`'d and `gc.collect()`'d before memory-heavy annotation passes
-
-## Tech stack
-
-`ultralytics` · `supervision` · `opencv-python` · `scikit-learn` · `scipy` · `pandas` · `numpy` · `matplotlib` · `streamlit`
-
-## Credits
-
-Inspired by [abdullahtarek/football_analysis](https://github.com/abdullahtarek/football_analysis). Extended with heatmaps, stats CSV, Streamlit UI, and memory-efficient streaming.
+Check the upstream repository and Ultralytics model/software licensing before commercial use.
